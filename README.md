@@ -2,8 +2,7 @@ Substitute
 ==========
 
 A friendly substitute for python mocking frameworks [*](http://nsubstitute.github.io/).
-
-A custom framework that helps you replace the dependent-on components of a class when you are writing unit tests. It provides what others call Mocks or Stubs. It is loosely based on [NSubstitute](http://nsubstitute.github.io/), my favorite substitution framework for .NET
+It helps you replace the dependent-on components of a class when you are writing unit tests. It provides what others call Mocks or Stubs. It is loosely based on [NSubstitute](http://nsubstitute.github.io/), my favorite substitution framework for .NET.
 
 ## Creating a substitute...
 To use a substitute in your tests simply create it like this:
@@ -155,4 +154,6 @@ Checking on these interactions is often referred to as 'verifying expectations o
     var theUser = new User{HashedPassword = "this is not hashed password"};    
     stubUserRepository.Stub(x => x.GetUserByName("ayende")).Return(theUser);
 
-Yeah. I know.
+Yeah. I know*.
+
+<small>*) I really respect ayende and have been using the incredible RhinoMocks for ages, but the it has a very steep learning curve. Just like the guys behind NSubstitute I just wanted a different syntax.</small>
