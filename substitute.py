@@ -1,6 +1,9 @@
 
 __all__ = ['Substitute', 'ONCE', 'TWICE', 'MissingCallComplaint', 'CalledTooOftenComplaint', 'CalledTooRarelyComplaint', 'UndesiredCallComplaint', 'ArgumentMissmatchComplaint', 'WrongArgumentTypeComplaint', 'ComparableString']
 
+__author__ = 'Johannes Hofmeister, http://twitter.com/@pro_cessor'
+__version__ = '1.0.1'
+
 from nose.tools import *
 
 ONCE = 1
@@ -240,7 +243,7 @@ class CallableOrValue(object):
     received_any = was_called_with_any
 
 class Substitute(object):
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         self._calls = []
         self._data = {}
         self._properties = {}

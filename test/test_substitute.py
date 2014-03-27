@@ -225,3 +225,23 @@ def test_string_compare_syntax():
 def test_string_compare_syntax_fails():
     s = ComparableString('Hello')
     s.should.equal('Helloa')
+
+class Person(object):
+    def __init__(self, name, age):
+        self.name = name
+        self.age = age
+
+def test_substitute_can_mimic_constructor_call():
+    ctor = Person
+    def make_person():
+        return ctor('Jen',32)
+
+    p = make_person()
+    assert_true(isinstance(p, Person))
+    assert_false(isinstance(p, Substitute))
+    assert_equal(p.name, 'Jen')
+
+    ctor = Substitute
+    s = make_person()
+    assert_true(isinstance(s, Substitute))
+
