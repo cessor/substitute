@@ -245,3 +245,66 @@ def test_substitute_can_mimic_constructor_call():
     s = make_person()
     assert_true(isinstance(s, Substitute))
 
+
+@raises(MissingCallComplaint)
+def test_raises_exception_if_a_kwarg_is_expected_but_no_call_was_made():
+    component = Substitute()
+    expect_that(component.method.received(name='hello'))
+
+@raises(MissingCallComplaint)
+def test_raises_exception_if_a_kwarg_by_type_is_expected_but_no_call_was_made():
+    component = Substitute()
+    expect_that(component.method.received_any(name=str))
+
+def test_calling_with_keyword_arguments_works_works():
+    component = Substitute()
+    component.method(name='hello')
+    expect_that(component.method.received(name='hello'))
+
+@raises(MissingKeywordArgumentComplaint)
+def test_raises_exception_if_a_kwarg_was_expected_but_nothing_was_received():
+    component = Substitute()
+    component.method()
+    expect_that(component.method.received(name='hello'))
+
+@raises(UnexpectedKeywordComplaint)
+def test_raises_exception_if_an_argument_is_expected_but_a_kwarg_was_received():
+    component = Substitute()
+    component.method(name='hello')
+    expect_that(component.method.received('hello'))
+
+@raises(MissingKeywordArgumentComplaint)
+def test_raises_exception_if_a_keyword_argument_was_expected_but_a_normal_argument_was_received():
+    component = Substitute()
+    component.method('Joseph')
+    expect_that(component.method.received(name='Joseph'))
+
+@raises(KeywordArgumentMissmatchComplaint)
+def test_raises_exception_if_a_keyword_argument_was_expected_but_a_normal_argument_was_received():
+    component = Substitute()
+    component.method(name='Jos')
+    expect_that(component.method.received(name='Joseph'))
+
+# def test_calling_with_keyword_arguments_works():
+#     component = Substitute()
+#     component.method(name='hello')
+#     expect_that(component.method.received_any(name=str))
+
+# @raises(MissingKeywordArgumentComplaint)
+# def test_calling_with_keyword_arguments_works():
+#     component = Substitute()
+#     component.method()
+#     expect_that(component.method.received_any(name=str))
+
+# #@raises(NotAKeywordArgumentComplaint)
+# def test_raises_exception_if_a_keyword_argument_type_was_expected_but_a_normal_argument_was_received():
+#     component = Substitute()
+#     component.method('name')
+#     expect_that(component.method.received_any(name=str))   
+
+# @raises(KeywordArgumentMissmatchComplaint)
+# def test_calling_with_keyword_arguments_works_too_asdsafdsfadsfasdf():
+#     # Fails
+#     component = Substitute()
+#     component.method(name=4)
+#     expect_that(component.method.received(name=str))

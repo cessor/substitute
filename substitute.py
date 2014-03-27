@@ -1,5 +1,5 @@
 
-__all__ = ['Substitute', 'ONCE', 'TWICE', 'MissingCallComplaint', 'CalledTooOftenComplaint', 'CalledTooRarelyComplaint', 'UndesiredCallComplaint', 'ArgumentMissmatchComplaint', 'WrongArgumentTypeComplaint', 'ComparableString']
+__all__ = ['Substitute', 'ONCE', 'TWICE', 'MissingCallComplaint', 'CalledTooOftenComplaint', 'CalledTooRarelyComplaint', 'KeywordArgumentMissmatchComplaint', 'MissingKeywordArgumentComplaint', 'UndesiredCallComplaint', 'UnexpectedKeywordComplaint', 'ArgumentMissmatchComplaint', 'WrongArgumentTypeComplaint', 'ComparableString']
 
 __author__ = 'Johannes Hofmeister, http://twitter.com/@pro_cessor'
 __version__ = '1.0.1'
@@ -15,14 +15,21 @@ class CalledTooOftenComplaint(Complaint):
     pass
 class CalledTooRarelyComplaint(Complaint):
     pass
+class KeywordArgumentMissmatchComplaint(Complaint):
+    pass
 class MissingCallComplaint(Complaint):
+    pass
+class MissingKeywordArgumentComplaint(Complaint):
     pass
 class UndesiredCallComplaint(Complaint):
     pass
+class UnexpectedKeywordComplaint(Complaint):
+    pass    
 class ArgumentMissmatchComplaint(Complaint):
     pass
 class WrongArgumentTypeComplaint(Complaint):
     pass
+
 
 complaints = {
     -1: CalledTooRarelyComplaint,
@@ -52,6 +59,16 @@ Was:      {pad_actual} x {name}(...)
 Expected: {name}{expected} 
 Received: {name}{actual}
 """,
+    KeywordArgumentMissmatchComplaint: """\n\n\tThe method '{name}' was called with the wrong keyword-arguments!
+
+Expected: {name}{expected} 
+Received: {name}{actual}
+""",
+    MissingKeywordArgumentComplaint: """\n\n\tThe method '{name}' was called without keyword arguments!
+
+Expected: {name}{expected} 
+Received: {name}{actual}
+    """,
     MissingCallComplaint: """\n\n\tThe method '{name}' was not called at all!
 
 Expected: 1 x {name}(...)
@@ -61,6 +78,11 @@ Was:      0 x {name}(...)
 
 Expected: 0 x {name}(...)
 Was:      1 x {name}(...)
+""",
+    UnexpectedKeywordComplaint: """\n\n\tThe method '{name}' was called with keyword-arguments, but normal arguments were expected!
+
+Expected: {name}{expected} 
+Received: {name}{actual}
 """,
     WrongArgumentTypeComplaint : '''\n\n\tThe method '{name}' was called by the wrong signature!\n
 The actual call was was: {name}({values})
@@ -83,6 +105,7 @@ class CallableOrValue(object):
         self._parent = parent
         self._name = name
         self._parameters = []
+        self._kwparameters = {}
 
     def __call__(self, *args, **kwargs):
         # Raise an exception if configured
@@ -91,6 +114,7 @@ class CallableOrValue(object):
             raise exception(self._name)
         # Register call parameters
         self._parameters = args
+        self._kwparameters = kwargs
         self._register_call_for_later_checking()
         
         # Return configured values
@@ -175,6 +199,9 @@ class CallableOrValue(object):
     def _make_string(self, types):
         return ', '.join([t.__name__ for t in types])
 
+    def _make_kw_signature(self, kwargs):
+        return '({list})'.format(list=', '.join(['='.join(item) for item in kwargs.items()]))
+
     # Assertions
     @property
     def was_called(self):
@@ -188,17 +215,40 @@ class CallableOrValue(object):
             raise _make(UndesiredCallComplaint, name=self._name)
         return True
 
-    def was_called_with(self, *obj):
+    def was_called_with(self, *args_expected, **kwargs_expected):
         call = self._actual_call()
         if not call:
             raise _make(MissingCallComplaint, name=self._name)
 
-        if not call._parameters == obj:
-            raise _make(ArgumentMissmatchComplaint, name=self._name, actual=call._parameters, expected=obj)
-        # Danger - This is not properly tested!
-        return obj == call._parameters
+        if args_expected and kwargs_expected:
+            raise Exception('Not yet implemented')
 
-    def was_called_with_any(self, *expected_types):
+        # Args were expected but none were given
+        if args_expected and not call._parameters:
+            if call._kwparameters:
+                kwargs = self._make_kw_signature(call._kwparameters)               
+                raise _make(UnexpectedKeywordComplaint, name=self._name, actual=kwargs, expected=args_expected)
+            # But kwargs were given
+            raise _make(ArgumentMissmatchComplaint, name=self._name, actual=call._parameters, expected=args_expected)
+
+        # Kwargs were expected but none were given
+        if kwargs_expected and not call._kwparameters:
+            kwargs = self._make_kw_signature(kwargs_expected)
+            raise _make(MissingKeywordArgumentComplaint, name=self._name, actual=call._parameters, expected=kwargs)
+
+        # Arguments don't match
+        if not args_expected == call._parameters:
+            raise _make(ArgumentMissmatchComplaint, name=self._name, actual=call._parameters, expected=args_expected)
+
+        # KeywordArguments don't match
+        if not kwargs_expected == call._kwparameters:
+            kwargs = self._make_kw_signature(kwargs_expected)
+            call_kwargs = self._make_kw_signature(call._kwparameters)
+            raise _make(KeywordArgumentMissmatchComplaint, name=self._name, actual=call_kwargs, expected=kwargs)
+        # Danger - This is not properly tested!
+        return True
+
+    def was_called_with_any(self, *expected_types, **kwargs):
         # Check if the configuration works like this:
         # s.method.was_called_with_any(str)
         for t in expected_types:
