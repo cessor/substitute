@@ -1,7 +1,8 @@
-complaint.py
-messages.py
 setup.py
-substitute.py
+substitute\__init__.py
+substitute\complaint.py
+substitute\messages.py
+substitute\substitute.py
 test\test_exercise_providing_data.py
 test\test_setup.py
 test\test_verify_calls.py

@@ -1,7 +1,7 @@
 from distutils.core import setup
 
 setup(name='substitute',
-    version='1.0.1',
+    version='1.1.0',
     description='A friendly substitute for python mocking frameworks',
     author='Johannes Hofmeister',
     author_email='substitute@spam.cessor.de',
