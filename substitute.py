@@ -1,54 +1,20 @@
-
 __all__ = [
     'Substitute',
     'ONCE',
-    'TWICE',
-    'ArgumentMissmatchComplaint',
-    'CalledTooOftenComplaint',
-    'CalledTooRarelyComplaint',
-    'KeywordArgumentMissmatchComplaint',  
-    'MissingCallComplaint',
-    'MissingArgumentComplaint',
-    'MissingKeywordArgumentComplaint',
-    'UndesiredCallComplaint',
-    'UnexpectedKeywordComplaint',
-    'WrongArgumentTypeComplaint',
-    'WrongKeywordArgumentTypeComplaint'
+    'TWICE'
 ]
 
 __author__ = 'Johannes Hofmeister, http://twitter.com/@pro_cessor'
 __version__ = '1.0.1'
 
 from nose.tools import *
+from complaint import *
+from messages import messages
+
 
 ONCE = 1
 TWICE = 2
 NEVER = 0
-
-class Complaint(Exception):
-    pass
-class ArgumentMissmatchComplaint(Complaint):
-    pass
-class CalledTooOftenComplaint(Complaint):
-    pass
-class CalledTooRarelyComplaint(Complaint):
-    pass
-class KeywordArgumentMissmatchComplaint(Complaint):
-    pass
-class MissingCallComplaint(Complaint):
-    pass
-class MissingArgumentComplaint(Complaint):
-    pass
-class MissingKeywordArgumentComplaint(Complaint):
-    pass
-class UndesiredCallComplaint(Complaint):
-    pass
-class UnexpectedKeywordComplaint(Complaint):
-    pass    
-class WrongArgumentTypeComplaint(Complaint):
-    pass
-class WrongKeywordArgumentTypeComplaint(Complaint):
-    pass
 
 complaints = {
     -1: CalledTooRarelyComplaint,
@@ -60,64 +26,8 @@ def _pad(actual, expected):
     padding = max(len(actual), len(expected))
     return actual.ljust(padding), expected.ljust(padding)
 
-_messages = {
-    CalledTooRarelyComplaint: """\n\n\tThe method '{name}' was not called often enough!\n
-    I expected {expected} calls but the method was called only {actual} time{s}
-
-Expected: {pad_expected} x {name}(...)
-Was:      {pad_actual} x {name}(...)
-    """,
-    CalledTooOftenComplaint: """\n\n\tThe method '{name}' was called too many times!\n
-    I expected {expected} calls but the method was called {actual} time{s}
-
-Expected: {pad_expected} x {name}(...)
-Was:      {pad_actual} x {name}(...)
-    """,
-    ArgumentMissmatchComplaint: """\n\n\tThe method '{name}' was called with the wrong arguments!
-
-Expected: {name}{expected} 
-Received: {name}{actual}
-""",
-    KeywordArgumentMissmatchComplaint: """\n\n\tThe method '{name}' was called with the wrong keyword-arguments!
-
-Expected: {name}{expected} 
-Received: {name}{actual}
-""",
-    MissingKeywordArgumentComplaint: """\n\n\tThe method '{name}' was called without keyword arguments!
-
-Expected: {name}{expected} 
-Received: {name}{actual}
-    """,
-    MissingCallComplaint: """\n\n\tThe method '{name}' was not called at all!
-
-Expected: 1 x {name}(...)
-Was:      0 x {name}(...)
-""",
-    UndesiredCallComplaint: """\n\n\tThe method '{name}' was called which was unintended!
-
-Expected: 0 x {name}(...)
-Was:      1 x {name}(...)
-""",
-    UnexpectedKeywordComplaint: """\n\n\tThe method '{name}' was called with keyword-arguments, but normal arguments were expected!
-
-Expected: {name}{expected} 
-Received: {name}{actual}
-""",
-    WrongKeywordArgumentTypeComplaint: '''\n\n\tThe method '{name}' was called by the wrong signature!\n
-The actual call was was: {name}({values})
-
-Expected: {name}({types})
-Received: {name}({call_parameter_types})
-''',
-    WrongArgumentTypeComplaint : '''\n\n\tThe method '{name}' was called by the wrong signature!\n
-The actual call was was: {name}({values})
-
-Expected: {name}({types})
-Received: {name}({call_parameter_types})
-'''
-}
 def _message_for(complaint, **kwargs):
-    message = _messages[complaint]
+    message = messages[complaint]
     message = message.format(**kwargs)
     return message
 
@@ -216,9 +126,11 @@ class CallableOrValue(object):
         equals = lambda (a,b):a==b
         return all(map(equals, zip(expected_types, actual_types)))
 
+    def _superfluous_keys(self, expeced_kwargs, actual_kwargs):
+        return set(expeced_kwargs.keys()) ^ set(actual_kwargs.keys())
+
     def _all_kw_types_match(self, expeced_kwargs, actual_kwargs):
-        superfluous_keys = set(expeced_kwargs.keys()) ^ set(actual_kwargs.keys())
-        if superfluous_keys:
+        if self._superfluous_keys(expeced_kwargs, actual_kwargs):
             return False
         return all(expeced_kwargs[key] == actual_kwargs[key] for key in expeced_kwargs.keys())
         
@@ -263,6 +175,8 @@ class CallableOrValue(object):
             if call._kwparameters:
                 kwargs = self._make_kw_signature(call._kwparameters)               
                 raise _make(UnexpectedKeywordComplaint, name=self._name, actual=kwargs, expected=args_expected)
+            else:
+                raise _make(MissingArgumentComplaint, name=self._name, actual=call._parameters, expected=args_expected)                
             # But kwargs were given
             raise _make(ArgumentMissmatchComplaint, name=self._name, actual=call._parameters, expected=args_expected)
 
@@ -277,6 +191,12 @@ class CallableOrValue(object):
 
         # KeywordArguments don't match
         if not kwargs_expected == call._kwparameters:
+
+            if self._superfluous_keys(kwargs_expected, call._kwparameters):
+                actual_kwargs = self._make_kw_signature(call._kwparameters)
+                expected_kwargs = self._make_kw_signature(kwargs_expected)
+                raise _make(MissingKeywordArgumentComplaint, name=self._name, actual=actual_kwargs, expected=expected_kwargs)
+
             kwargs = self._make_kw_signature(kwargs_expected)
             call_kwargs = self._make_kw_signature(call._kwparameters)
             raise _make(KeywordArgumentMissmatchComplaint, name=self._name, actual=call_kwargs, expected=kwargs)
@@ -319,8 +239,18 @@ class CallableOrValue(object):
             )
 
         # Compare Keyword Argument Type Dictionaries
+
+        # Check if there are different keys first
+        if self._superfluous_keys(expected_types_kwargs, call._kwparameters):
+            actual_kwargs = self._make_kw_signature(call._kwparameters)
+            expected_kwargs = self._make_kw_signature(self._map_type_names_from_dict(expected_types_kwargs))
+            raise _make(MissingKeywordArgumentComplaint, name=self._name, actual=actual_kwargs, expected=expected_kwargs)
+
+        # check if the types of the keys match      
         expected_kw_types = expected_types_kwargs
         actual_kw_types = self._map_types_from_dict(call._kwparameters)
+
+        # This does a dictionary match that is not necessary here
         if not self._all_kw_types_match(expected_kw_types, actual_kw_types):
             
             expected_kw_names = self._make_kw_signature(self._map_type_names_from_dict(expected_kw_types))

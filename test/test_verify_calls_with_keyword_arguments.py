@@ -1,5 +1,6 @@
 from nose.tools import *
 from substitute import *
+from substitute.complaint import *
 expect_that = assert_true
 
 # arg = Argument

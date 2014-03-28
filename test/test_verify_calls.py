@@ -1,5 +1,6 @@
 from nose.tools import *
 from substitute import *
+from substitute.complaint import *
 expect_that = assert_true
 
 def test_expect_was_called():
