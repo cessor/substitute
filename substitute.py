@@ -1,5 +1,20 @@
 
-__all__ = ['Substitute', 'ONCE', 'TWICE', 'MissingCallComplaint', 'CalledTooOftenComplaint', 'CalledTooRarelyComplaint', 'KeywordArgumentMissmatchComplaint', 'MissingKeywordArgumentComplaint', 'UndesiredCallComplaint', 'UnexpectedKeywordComplaint', 'ArgumentMissmatchComplaint', 'WrongArgumentTypeComplaint', 'ComparableString']
+__all__ = [
+    'Substitute',
+    'ONCE',
+    'TWICE',
+    'ArgumentMissmatchComplaint',
+    'CalledTooOftenComplaint',
+    'CalledTooRarelyComplaint',
+    'KeywordArgumentMissmatchComplaint',  
+    'MissingCallComplaint',
+    'MissingArgumentComplaint',
+    'MissingKeywordArgumentComplaint',
+    'UndesiredCallComplaint',
+    'UnexpectedKeywordComplaint',
+    'WrongArgumentTypeComplaint',
+    'WrongKeywordArgumentTypeComplaint'
+]
 
 __author__ = 'Johannes Hofmeister, http://twitter.com/@pro_cessor'
 __version__ = '1.0.1'
@@ -8,8 +23,11 @@ from nose.tools import *
 
 ONCE = 1
 TWICE = 2
+NEVER = 0
 
 class Complaint(Exception):
+    pass
+class ArgumentMissmatchComplaint(Complaint):
     pass
 class CalledTooOftenComplaint(Complaint):
     pass
@@ -19,17 +37,18 @@ class KeywordArgumentMissmatchComplaint(Complaint):
     pass
 class MissingCallComplaint(Complaint):
     pass
+class MissingArgumentComplaint(Complaint):
+    pass
 class MissingKeywordArgumentComplaint(Complaint):
     pass
 class UndesiredCallComplaint(Complaint):
     pass
 class UnexpectedKeywordComplaint(Complaint):
     pass    
-class ArgumentMissmatchComplaint(Complaint):
-    pass
 class WrongArgumentTypeComplaint(Complaint):
     pass
-
+class WrongKeywordArgumentTypeComplaint(Complaint):
+    pass
 
 complaints = {
     -1: CalledTooRarelyComplaint,
@@ -84,6 +103,12 @@ Was:      1 x {name}(...)
 Expected: {name}{expected} 
 Received: {name}{actual}
 """,
+    WrongKeywordArgumentTypeComplaint: '''\n\n\tThe method '{name}' was called by the wrong signature!\n
+The actual call was was: {name}({values})
+
+Expected: {name}({types})
+Received: {name}({call_parameter_types})
+''',
     WrongArgumentTypeComplaint : '''\n\n\tThe method '{name}' was called by the wrong signature!\n
 The actual call was was: {name}({values})
 
@@ -175,7 +200,6 @@ class CallableOrValue(object):
             }
         self._parent._data[self._name] = data
 
-
     def _actual_calls(self):
         return (call for call in self._parent._calls if call._name == self._name)
 
@@ -188,19 +212,30 @@ class CallableOrValue(object):
         except: 
             return None
 
-    def _all_types_match(self, expected_types, actual_parameters):
-        actual_types = self._map_types(actual_parameters)
+    def _all_types_match(self, expected_types, actual_types):
         equals = lambda (a,b):a==b
         return all(map(equals, zip(expected_types, actual_types)))
 
+    def _all_kw_types_match(self, expeced_kwargs, actual_kwargs):
+        superfluous_keys = set(expeced_kwargs.keys()) ^ set(actual_kwargs.keys())
+        if superfluous_keys:
+            return False
+        return all(expeced_kwargs[key] == actual_kwargs[key] for key in expeced_kwargs.keys())
+        
     def _map_types(self, parameters):
         return [type(parameter) for parameter in parameters]
+
+    def _map_types_from_dict(self, dictionary):
+        return {a:type(b) for a,b in dictionary.items()} 
+
+    def _map_type_names_from_dict(self, dictionary):
+        return dict(map(lambda (a,b): (a,b.__name__), dictionary.items()))
 
     def _make_string(self, types):
         return ', '.join([t.__name__ for t in types])
 
     def _make_kw_signature(self, kwargs):
-        return '({list})'.format(list=', '.join(['='.join(item) for item in kwargs.items()]))
+        return '{list}'.format(list=', '.join(['='.join((str(a),str(b))) for a,b in kwargs.items()]))
 
     # Assertions
     @property
@@ -248,19 +283,31 @@ class CallableOrValue(object):
         # Danger - This is not properly tested!
         return True
 
-    def was_called_with_any(self, *expected_types, **kwargs):
+    def was_called_with_any(self, *expected_types, **expected_types_kwargs):
         # Check if the configuration works like this:
         # s.method.was_called_with_any(str)
-        for t in expected_types:
-            if not type(t) == type(type):
-                raise ValueError("Please specify a type rather than a value, like 'component.was_called_with_any(str)'")
+        if expected_types:
+            for t in expected_types:
+                if not type(t) == type(type):
+                    raise ValueError("Please specify a type rather than a value, like 'component.was_called_with_any(str)'")
+        if expected_types_kwargs:
+            for t in expected_types_kwargs.values():
+                if not type(t) == type(type):
+                    raise ValueError("Please specify a type rather than a value, like 'component.was_called_with_any(name=str)'")
 
         call = self._actual_call()
-
         if not call:
             raise _make(MissingCallComplaint, name=self._name)
 
-        if not self._all_types_match(expected_types, call._parameters):
+        # Args were expected but none were provided
+        if expected_types_kwargs and not call._kwparameters:           
+            types = self._map_type_names_from_dict(expected_types_kwargs)
+            kwargs = self._make_kw_signature(types)
+            raise _make(MissingKeywordArgumentComplaint, name=self._name, actual=call._parameters, expected=kwargs)
+
+        # Compare Parameteres
+        actual_types = self._map_types(call._parameters)
+        if not self._all_types_match(expected_types, actual_types):
             expected_type_names = self._make_string(expected_types)
             actual_type_names = self._make_string(self._map_types(call._parameters))
             values = ', '.join([str(p) for p in call._parameters])
@@ -270,13 +317,37 @@ class CallableOrValue(object):
                 call_parameter_types=actual_type_names, 
                 values=values
             )
+
+        # Compare Keyword Argument Type Dictionaries
+        expected_kw_types = expected_types_kwargs
+        actual_kw_types = self._map_types_from_dict(call._kwparameters)
+        if not self._all_kw_types_match(expected_kw_types, actual_kw_types):
+            
+            expected_kw_names = self._make_kw_signature(self._map_type_names_from_dict(expected_kw_types))
+            actual_kw_names = self._make_kw_signature(self._map_type_names_from_dict(actual_kw_types))
+            #values = ', '.join([str(p) for p in call._parameters])
+            values = self._make_kw_signature(call._kwparameters)
+
+            raise _make(WrongKeywordArgumentTypeComplaint, 
+                 name=self._name, 
+                 types=expected_kw_names, 
+                 call_parameter_types=actual_kw_names,
+                 values=values
+            )
         return True
 
     def was_called_exactly(self, times):
         actual = sum(1 for call in self._parent._calls if call._name == self._name) 
         expected = times
+
+        # If it was expected just once but was never called
+        # Raise Missing Call Complaint
+        if expected == ONCE and actual == NEVER:
+            raise _make(MissingCallComplaint, name=self._name)
+
+        # Compare if it is too often or too rarely
         complaint = complaints.get(cmp(actual, expected), None)
-        if complaint: 
+        if complaint:
             pad_actual, pad_expected = _pad(actual, expected)
             plural = ('s' if actual > 1 else '')
             raise _make(complaint, 
@@ -288,7 +359,6 @@ class CallableOrValue(object):
                 pad_expected=pad_expected
             )
         return True
-
     received = was_called_with
     received_any = was_called_with_any
 
@@ -307,15 +377,3 @@ class Substitute(object):
 
     def __setitem__(self, name, value):
         self._properties[name] = value
-
-class Compare(object):
-    def __init__(self, str):
-        self._content = str
-    
-    def equal(self, s):
-        assert_equal(self._content, s)
-
-class ComparableString(str):
-    def __init__(self, content):
-        super(ComparableString)
-        self.should = Compare(content)
