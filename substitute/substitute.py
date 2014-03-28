@@ -163,12 +163,21 @@ class CallableOrValue(object):
         return True
 
     def was_called_with(self, *args_expected, **kwargs_expected):
+        # Check if the configuration works like this:
+        # s.method.was_called_with('value')
+        # s.method.was_called_with(key='value')
+        if args_expected:
+            for t in args_expected:
+                if type(t) == type(type):
+                    raise ValueError("Please specify a value rather than a type, like 'component.was_called_with('value')'")
+        if kwargs_expected:
+            for t in kwargs_expected.values():
+                if type(t) == type(type):
+                    raise ValueError("Please specify a type rather than a value, like 'component.was_called_with(name='value')'")
+
         call = self._actual_call()
         if not call:
             raise _make(MissingCallComplaint, name=self._name)
-
-        if args_expected and kwargs_expected:
-            raise Exception('Not yet implemented')
 
         # Args were expected but none were given
         if args_expected and not call._parameters:
@@ -206,6 +215,7 @@ class CallableOrValue(object):
     def was_called_with_any(self, *expected_types, **expected_types_kwargs):
         # Check if the configuration works like this:
         # s.method.was_called_with_any(str)
+        # s.method.was_called_with_any(key=str)
         if expected_types:
             for t in expected_types:
                 if not type(t) == type(type):
