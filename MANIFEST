@@ -1,3 +1,9 @@
+complaint.py
+messages.py
 setup.py
 substitute.py
-test\test_substitute.py
+test\test_exercise_providing_data.py
+test\test_setup.py
+test\test_verify_calls.py
+test\test_verify_calls_with_arguments.py
+test\test_verify_calls_with_keyword_arguments.py
