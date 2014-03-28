@@ -1,7 +1,10 @@
+[![Build Status](https://travis-ci.org/cessor/substitute.svg?branch=master)](https://travis-ci.org/cessor/substitute)
+
 Substitute
 ==========
 
 A friendly substitute for python mocking frameworks [*](http://nsubstitute.github.io/).
+
 It helps you replace the dependent-on components of a class when you are writing unit tests. It provides what others call Mocks or Stubs. It is loosely based on [NSubstitute](http://nsubstitute.github.io/), my favorite substitution framework for .NET.
 
 ## Creating a substitute...
