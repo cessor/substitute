@@ -29,7 +29,7 @@ Was:      0 x {name}(...)
 """,
     MissingArgumentComplaint: """\n\n\tThe method '{name}' was called without arguments!
 
-Expected: {name}{expected} 
+Expected: {name}({expected})
 Received: {name}{actual}
     """,
     MissingKeywordArgumentComplaint: """\n\n\tThe method '{name}' was called without an expected keyword!

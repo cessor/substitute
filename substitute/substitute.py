@@ -230,6 +230,11 @@ class CallableOrValue(object):
             raise _make(MissingCallComplaint, name=self._name)
 
         # Args were expected but none were provided
+        if expected_types and not call._parameters:
+            expected_type_names = self._make_string(expected_types)
+            raise _make(MissingArgumentComplaint, name=self._name, actual=call._parameters, expected=expected_type_names)
+
+        # Kwargs were expected but none were provided
         if expected_types_kwargs and not call._kwparameters:           
             types = self._map_type_names_from_dict(expected_types_kwargs)
             kwargs = self._make_kw_signature(types)

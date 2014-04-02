@@ -44,6 +44,12 @@ def test_expect_received_wrong_data_fails():
     component.method('hello, honey')
     expect_that(component.method.received('hello'))
 
+#@raises(MissingArgumentComplaint)
+def test_expect_received_no_type_fails():
+    component = Substitute()
+    component.method()
+    expect_that(component.method.received_any(str))
+
 @raises(WrongArgumentTypeComplaint)
 def test_expect_received_wrong_type_fails():
     '''Substitute - Verify (args): Method was called with wrong type'''
