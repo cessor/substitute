@@ -44,7 +44,7 @@ def test_expect_received_wrong_data_fails():
     component.method('hello, honey')
     expect_that(component.method.received('hello'))
 
-#@raises(MissingArgumentComplaint)
+@raises(MissingArgumentComplaint)
 def test_expect_received_no_type_fails():
     component = Substitute()
     component.method()
